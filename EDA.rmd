@@ -1,0 +1,83 @@
+---
+title: "EDA"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warnings = FALSE, messages = FALSE, results = 'hide', cache = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(sf)
+library(tmap)
+library(tigris)
+library(osrm)
+```
+
+```{r}
+phl_streets <- roads(state = "PA",
+                     county = "Philadelphia")
+montco_streets <- roads(state = "PA",
+                     county = "Montgomery")
+
+streets <- rbind(phl_streets, montco_streets) %>% 
+  st_transform(4326)
+
+dat_2015 <- st_read("Data/route_52_2015.geojson")
+dat_2016 <- st_read("Data/route_52_2016.geojson")
+dat_2017 <- st_read("Data/route_52_2017.geojson")
+dat_2018 <- st_read("Data/route_52_2018.geojson")
+dat_2019 <- st_read("Data/route_52_2019.geojson")
+
+setdiff(names(dat_2015), 
+        names(dat_2016))
+
+```
+# Walksheds
+
+```{r}
+# options(osrm.server = "http://localhost:5000/", osrm.profile = "walk")
+# 
+# # 10-minute walk = 0.5 miles or 800m
+# 
+# dat_2019 <- dat_2019 %>% 
+#   rownames_to_column("id")
+# 
+# isochrone_list <- list()
+# for (row in seq_len(nrow(dat_2019))) {
+#   print(row)
+#   tryCatch({
+#     isochrone_list[[row]] <- osrmIsochrone( # find isochrones
+#       dat_2019[row,],
+#       breaks = 10, # 800-meter walk
+#       exclude = NULL, # don't exclude any road types
+#       res = 30, # resolution
+#       returnclass = "sf"
+#       )}, 
+#     error = function(e){})
+# }
+# 
+# isochrone <- map(isochrone_list,
+#                  ~ as.data.frame(.x)) %>% 
+#   bind_rows(.id = "stop_ID") %>% 
+#   st_as_sf()
+
+# saveRDS(isochrone,
+#         "Data/isochrone/isochrone.rds")
+
+isochrone <- readRDS("Data/isochrone/isochrone.rds")
+
+walkshed_streets <- st_intersection(streets, isochrone)       
+
+tmap_mode("view")
+
+tm_shape(streets) + tm_lines(col = "gray") +
+  tm_shape(isochrone) + tm_fill(col = "cornflowerblue", alpha = 0.1) +
+  tm_shape(dat_2019) + tm_dots(col = "red", size = 0.02) +
+  tm_shape(walkshed_streets, is.master = TRUE) + tm_lines(col = "black", lwd = 0.1) 
+  
+```
+
